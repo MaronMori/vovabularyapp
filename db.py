@@ -42,7 +42,6 @@ class VocabularyDatabase:
 
     def add_new_word(self, word, definition, note):
         cur = self.conn.cursor()
-        cur.execute("BEGIN TRANSACTION")
         try:
             cur.execute("INSERT INTO vocabulary (word, definition, note) VALUES (?, ?, ?)",
                         (word, definition, note))

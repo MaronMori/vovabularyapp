@@ -1,4 +1,5 @@
 import wx
+import wx.dataview as dv
 from db import VocabularyDatabase
 
 
@@ -58,7 +59,7 @@ class add_data_window(wx.Frame):
             dlg.Destroy()
 
             if result == wx.ID_YES:
-                word_id = self.vocab_db.updata_data(word)
+                word_id = self.vocab_db.update_data(word)
                 self.vocab_db.word_data[word_id] = {"word": word, "definition": definition, "note": note}
             else:
                 self.vocab_db.add_new_word(word, definition, note)
@@ -84,31 +85,26 @@ class MyFrame(wx.Frame):
         button = wx.Button(self.panel, label="Add")
         button.Bind(wx.EVT_BUTTON, self.on_button_click)
 
+        # List of Vocabulary using DataViewListCtrl
+        self.dvlc = dv.DataViewListCtrl(self.panel, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES | dv.DV_HORIZ_RULES)
 
+        # Adding columns to DataViewListCtrl
+        self.dvlc.AppendTextColumn("Word/Phrase")
+        self.dvlc.AppendTextColumn("Definition")
+        self.dvlc.AppendTextColumn("Note")
 
-        # List of Vocabulary
-        self.list_ctrl = wx.ListCtrl(self.panel, style=wx.LC_REPORT | wx.LC_HRULES | wx.LC_VRULES)
-        self.list_ctrl.InsertColumn(0, "Word/Phrase", width=wx.LIST_AUTOSIZE_USEHEADER)
-        self.list_ctrl.InsertColumn(1, "Definition", width=wx.LIST_AUTOSIZE_USEHEADER)
-        self.list_ctrl.InsertColumn(2, "Note", width=wx.LIST_AUTOSIZE_USEHEADER)
+        # Populate the DataViewListCtrl
+        for word in self.vocab_db.word_data.values():
+            self.dvlc.AppendItem([word["word"], word["definition"], word["note"]])
 
-        # Increase font size for ListCtrl items
-        font = wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        self.list_ctrl.SetFont(font)
-
-        # Adjust column widths after adding all items
-        self.Bind(wx.EVT_LIST_COL_END_DRAG, self.on_col_end_drag, self.list_ctrl)
-        self.Bind(wx.EVT_SIZE, self.on_size)
-
-        for i, word in enumerate(self.vocab_db.word_data.values()):
-            self.list_ctrl.InsertItem(i, word["word"])
-            self.list_ctrl.SetItem(i, 1, word["definition"])
-            self.list_ctrl.SetItem(i, 2, word["note"])
+        # Set the size of the columns to fit the content
+        for i in range(self.dvlc.GetColumnCount()):
+            self.dvlc.Columns[i].SetWidth(wx.COL_WIDTH_AUTOSIZE)
 
         # Place widget
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(button, 0, wx.ALL | wx.CENTER, 10)
-        sizer.Add(self.list_ctrl, 1, wx.ALL | wx.EXPAND, 10)
+        sizer.Add(self.dvlc, 1, wx.ALL | wx.EXPAND, 10)
         self.panel.SetSizer(sizer)
 
         frame_sizer = wx.BoxSizer()
@@ -117,32 +113,31 @@ class MyFrame(wx.Frame):
         self.Layout()
 
     def on_size(self, event):
-        # Resize last colum to fill space on window resize
-        self.resize_last_column()
+        # Resize columns when the frame size changes
+        for i in range(self.dvlc.GetColumnCount()):
+            self.dvlc.Columns[i].SetWidth(wx.COL_WIDTH_AUTOSIZE)
         event.Skip()
-
-    def on_col_end_drag(self, event):
-        # Resize last column to fill space when user manually resizes columns
-        self.resize_last_column()
-        event.Skip()
-
-    def resize_last_column(self):
-        width = self.list_ctrl.GetClientSize().width - self.list_ctrl.GetColumnWidth(0) - self.list_ctrl.GetColumnWidth(1)
-        self.list_ctrl.SetColumnWidth(2, max(width, 100))
 
     def on_button_click(self, event):
-        new_window = add_data_window(self, "Add Word", self.vocab_db)
+        # Logic for the button click
+        new_window = add_data_window(self, "Ass Word", self.vocab_db)
         new_window.Show()
 
     def update_list(self):
-        self.list_ctrl.DeleteAllItems()
+        # Delete all existing rows
+        self.dvlc.DeleteAllItems()
 
-        for i, word in enumerate(self.vocab_db.word_data.values()):
-            self.list_ctrl.InsertItem(i, word["word"])
-            self.list_ctrl.SetItem(i, 1, word["definition"])
-            self.list_ctrl.SetItem(i, 2, word["note"])
+        # Iterate over the data in the database and add it to the list
+        for word in self.vocab_db.word_data.values():
+            # AppendItem takes a list of values corresponding to each column
+            self.dvlc.AppendItem([word["word"], word["definition"], word["note"]])
+
+        # Optionally resize columns to fit their content
+        for i in range(self.dvlc.GetColumnCount()):
+            self.dvlc.Columns[i].SetWidth(wx.COL_WIDTH_AUTOSIZE)
 
     def on_close(self, event):
+        # Save data and clean up before closing
         self.vocab_db.save_data()
         event.Skip()
 
