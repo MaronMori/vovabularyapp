@@ -30,7 +30,7 @@ class add_data_window(wx.Frame):
         note_box = wx.BoxSizer(wx.HORIZONTAL)
         label3 = wx.StaticText(panel, label="Note:")
         note_box.Add(label3, 0, wx.RIGHT, 8)
-        self.text_note = wx.TextCtrl(panel, style=wx.TE_MULTILINE)
+        self.text_note = wx.TextCtrl(panel)
         note_box.Add(self.text_note, 1, wx.EXPAND)
         sizer.Add(note_box, 0, wx.EXPAND | wx.ALL, 10)
 
@@ -83,7 +83,11 @@ class MyFrame(wx.Frame):
 
         # Button to open a window to add new data
         button = wx.Button(self.panel, label="Add")
-        button.Bind(wx.EVT_BUTTON, self.on_button_click)
+        button.Bind(wx.EVT_BUTTON, self.on_button_click_to_add_new_word)
+
+        # create search box for field
+        self.search_ctrl = wx.SearchCtrl(self.panel, style=wx.TE_PROCESS_ENTER)
+        self.search_ctrl.Bind(wx.EVT_TEXT_ENTER, self.on_search)
 
         # List of Vocabulary using DataViewListCtrl
         self.dvlc = dv.DataViewListCtrl(self.panel, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES | dv.DV_HORIZ_RULES)
@@ -101,9 +105,16 @@ class MyFrame(wx.Frame):
         for i in range(self.dvlc.GetColumnCount()):
             self.dvlc.Columns[i].SetWidth(wx.COL_WIDTH_AUTOSIZE)
 
+        # Configure font on field
+        font = wx.Font(35, wx.FONTFAMILY_ROMAN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Times New Roman")
+        self.dvlc.SetFont(font)
+
+
+
         # Place widget
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(button, 0, wx.ALL | wx.CENTER, 10)
+        sizer.Add(self.search_ctrl, 0, wx.ALL | wx.EXPAND, 5)
         sizer.Add(self.dvlc, 1, wx.ALL | wx.EXPAND, 10)
         self.panel.SetSizer(sizer)
 
@@ -118,10 +129,25 @@ class MyFrame(wx.Frame):
             self.dvlc.Columns[i].SetWidth(wx.COL_WIDTH_AUTOSIZE)
         event.Skip()
 
-    def on_button_click(self, event):
+    def on_button_click_to_add_new_word(self, event):
         # Logic for the button click
         new_window = add_data_window(self, "Ass Word", self.vocab_db)
         new_window.Show()
+
+    def on_search(self, event):
+        search_text = self.search_ctrl.GetValue().lower()
+        for item in range(self.dvlc.GetItemCount()):
+            word = self.dvlc.GetValue(item, 0).lower()
+            if search_text in word:
+                self.dvlc.Select(item)
+                self.dvlc.EnsureVisible(item)
+                break
+            else:
+                self.dvlc.Unselect(item)
+
+        # if search box is empty, undo selection.
+        if not search_text:
+            self.dvlc.UnselectAll()
 
     def update_list(self):
         # Delete all existing rows
