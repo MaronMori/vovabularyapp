@@ -72,6 +72,61 @@ class add_data_window(wx.Frame):
         self.Close()
         self.GetParent().update_list()
 
+class edit_word_info_window(wx.Frame):
+    def __init__(self, parent, title, vocab_db, word="", definition="", note=""):
+        super(edit_word_info_window, self).__init__(parent, title=title, size=(400, 250))
+        self.vocab_db = vocab_db
+        panel = wx.Panel(self)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Word/Phrase
+        word_box = wx.BoxSizer(wx.HORIZONTAL)
+        label1 = wx.StaticText(panel, label="Word/Phrase:")
+        word_box.Add(label1, 0, wx.Right, 8)
+        self.text_word = wx.TextCtrl(panel)
+        word_box.Add(self.text_word, 1, wx.EXPAND)
+        sizer.Add(word_box, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Definition
+        definition_box = wx.BoxSizer(wx.HORIZONTAL)
+        label2 = wx.StaticText(panel, label="Definition:")
+        definition_box.Add(label2, 0, wx.RIGHT, 8)
+        self.text_def = wx.TextCtrl(panel)
+        definition_box.Add(self.text_def, 1, wx.EXPAND)
+        sizer.Add(definition_box, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Note
+        note_box = wx.BoxSizer(wx.HORIZONTAL)
+        label3 = wx.StaticText(panel, label="Note:")
+        note_box.Add(label3, 0, wx.RIGHT, 8)
+        self.text_note = wx.TextCtrl(panel)
+        note_box.Add(self.text_note, 1, wx.EXPAND)
+        sizer.Add(note_box, 0, wx.EXPAND | wx.ALL, 10)
+
+        # Set initial value on text boxes
+        self.text_word.SetValue(word)
+        self.text_def.SetValue(definition)
+        self.text_note.SetValue(note)
+
+        # Button to submit
+        add_button = wx.Button(panel, label="Apply")
+        add_button.Bind(wx.EVT_BUTTON, self.edit_data)
+        sizer.Add(add_button, 0, wx.CENTER, 10)
+
+        panel.SetSizer(sizer)
+
+    def edit_data(self, event):
+        word = self.text_word.GetValue()
+        definition = self.text_def.GetValue()
+        note = self.text_note.GetValue()
+
+        word_id = self.vocab_db.update_data(word)
+        self.vocab_db.word_data[word_id] = {"word": word, "definition": definition, "note": note}
+
+        self.vocab_db.save_data()
+
+        self.Close()
+        self.GetParent().update_list()
 
 class MyFrame(wx.Frame):
     def __init__(self, parent, title, vocab_db):
@@ -84,11 +139,19 @@ class MyFrame(wx.Frame):
         # Button to open a window to add new data
         button = wx.Button(self.panel, label="Add")
         button.Bind(wx.EVT_BUTTON, self.on_button_click_to_add_new_word)
+        # Button to open a window to edit word info
+        edit_button = wx.Button(self.panel, label="Edit")
+        edit_button.Bind(wx.EVT_BUTTON, self.on_button_click_to_edit_word_info)
 
-        # create search box for field
-        self.search_ctrl = wx.SearchCtrl(self.panel, style=wx.TE_PROCESS_ENTER)
-        self.search_ctrl.Bind(wx.EVT_TEXT_ENTER, self.on_search)
-
+        # Button to search word in field by user input
+        search_button = wx.Button(self.panel, label="Search")
+        search_button.Bind(wx.EVT_BUTTON, self.on_search)
+        # Search box
+        self.search_ctrl = wx.SearchCtrl(self.panel)
+        self.search_ctrl.SetPosition((10, 10))
+        # List for method of search
+        choices = ["Word/Phrase", "Definition", "Note"]
+        self.combo_box = wx.ComboBox(self.panel, choices=choices)
         # List of Vocabulary using DataViewListCtrl
         self.dvlc = dv.DataViewListCtrl(self.panel, style=dv.DV_ROW_LINES | dv.DV_VERT_RULES | dv.DV_HORIZ_RULES)
 
@@ -109,14 +172,21 @@ class MyFrame(wx.Frame):
         font = wx.Font(35, wx.FONTFAMILY_ROMAN, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL, False, "Times New Roman")
         self.dvlc.SetFont(font)
 
-
-
         # Place widget
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(button, 0, wx.ALL | wx.CENTER, 10)
-        sizer.Add(self.search_ctrl, 0, wx.ALL | wx.EXPAND, 5)
-        sizer.Add(self.dvlc, 1, wx.ALL | wx.EXPAND, 10)
-        self.panel.SetSizer(sizer)
+        horizontal_sizer_search = wx.BoxSizer(wx.HORIZONTAL)
+        horizontal_sizer_search.Add(self.search_ctrl, 1, wx.EXPAND)
+        horizontal_sizer_search.Add(self.combo_box, 0, wx.LEFT, 10)
+        horizontal_sizer_search.Add(search_button, 0, wx.LEFT, 10)
+
+        horizontal_sizer_button = wx.BoxSizer(wx.HORIZONTAL)
+        horizontal_sizer_button.Add(button, 0, wx.LEFT, 10)
+        horizontal_sizer_button.Add(edit_button, 0, wx.LEFT, 10)
+
+        vertical_sizer = wx.BoxSizer(wx.VERTICAL)
+        vertical_sizer.Add(horizontal_sizer_button, 0, wx.ALL | wx.CENTER, 10)
+        vertical_sizer.Add(horizontal_sizer_search, 0, wx.ALL | wx.EXPAND, 5)
+        vertical_sizer.Add(self.dvlc, 1, wx.ALL | wx.EXPAND, 10)
+        self.panel.SetSizer(vertical_sizer)
 
         frame_sizer = wx.BoxSizer()
         frame_sizer.Add(self.panel, 1, wx.EXPAND)
@@ -131,23 +201,54 @@ class MyFrame(wx.Frame):
 
     def on_button_click_to_add_new_word(self, event):
         # Logic for the button click
-        new_window = add_data_window(self, "Ass Word", self.vocab_db)
+        new_window = add_data_window(self, "Add Word", self.vocab_db)
         new_window.Show()
 
-    def on_search(self, event):
-        search_text = self.search_ctrl.GetValue().lower()
-        for item in range(self.dvlc.GetItemCount()):
-            word = self.dvlc.GetValue(item, 0).lower()
-            if search_text in word:
-                self.dvlc.Select(item)
-                self.dvlc.EnsureVisible(item)
-                break
-            else:
-                self.dvlc.Unselect(item)
+    def on_button_click_to_edit_word_info(self, event):
+        selected_row = self.dvlc.GetSelectedRow()
+        if selected_row != -1:
+            word = self.dvlc.GetTextValue(selected_row, 0)
+            definition = self.dvlc.GetTextValue(selected_row, 1)
+            note = self.dvlc.GetTextValue(selected_row, 2)
+            edit_window = edit_word_info_window(self, "Edit Word", self.vocab_db, word, definition, note)
+            edit_window.Show()
 
-        # if search box is empty, undo selection.
-        if not search_text:
-            self.dvlc.UnselectAll()
+    def on_search(self, event):
+        selection = self.combo_box.GetStringSelection()
+        if selection == "Word/Phrase":
+            search_text = self.search_ctrl.GetValue().lower()
+            for item in range(self.dvlc.GetItemCount()):
+                word = self.dvlc.GetValue(item, 0).lower()
+                self.select_and_focus_line(search_text, word, item)
+            # if search box is empty, undo selection.
+            if not search_text:
+                self.dvlc.UnselectAll()
+        elif selection == "Definition":
+            search_text = self.search_ctrl.GetValue().lower()
+            for item in range(self.dvlc.GetItemCount()):
+                definition = self.dvlc.GetValue(item, 1).lower()
+                self.select_and_focus_line(search_text, definition, item)
+            # if search box is empty, undo selection.
+            if not search_text:
+                self.dvlc.UnselectAll()
+        elif selection == "Note":
+            search_text = self.search_ctrl.GetValue().lower()
+            for item in range(self.dvlc.GetItemCount()):
+                note = self.dvlc.GetValue(item, 2).lower()
+                self.select_and_focus_line(search_text, note, item)
+            # if search box is empty, undo selection.
+            if not search_text:
+                self.dvlc.UnselectAll()
+
+    def select_and_focus_line(self, text, item_of_value, item):
+        if text in item_of_value:
+            item_obj = self.dvlc.RowToItem(item)
+            self.dvlc.Select(item_obj)
+            self.dvlc.EnsureVisible(item_obj)
+            self.dvlc.SetFocus()
+        else:
+            item_obj = self.dvlc.RowToItem(item)
+            self.dvlc.Unselect(item_obj)
 
     def update_list(self):
         # Delete all existing rows
@@ -169,7 +270,7 @@ class MyFrame(wx.Frame):
 
 
 def main():
-    app = wx.App()
+    app = wx.App(redirect=False)
     vocab_db = VocabularyDatabase("vocabulary.db")
     try:
         frame = MyFrame(None, "Vocabulary APP", vocab_db)
